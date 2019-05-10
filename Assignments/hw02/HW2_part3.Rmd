@@ -1,0 +1,97 @@
+---
+title: "Homework 02: Modeling Voter Turnout "
+author: Ellen Hsieh
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(modelr)
+library(rcfss)
+```
+
+### 1.
+```{r}
+library(ggplot2)
+
+mh = read.csv('/Users/ellenhsieh/Documents/UChicago/2019 Winter/Modeling/hw02/data/mental_health.csv')
+
+mh = mh %>%
+  na.omit #(vote96, mhealth_sum)
+
+mh %>%
+  na.omit %>%
+    mutate(vote96 = factor(vote96, levels = 0:1, labels = c("Did not vote", "Did vote"))) %>%
+    ggplot(aes(vote96)) +
+    geom_bar(aes(y = (..count..)/sum(..count..)), width = 0.1) +
+    labs(title = "Distribution of voter turnout",
+         x = "Voter Turnout",
+         y = "Unconditional probability of voter turnout")
+```
+
+### 2.
+a.
+```{r}
+vote_mh = glm(vote96 ~ mhealth_sum, data = mh, family = binomial)
+summary(vote_mh)
+```
+
+Yes, the relationsihp between voter turnout and mental health is statistically significant and negative.
+
+b.
+```{r}
+new = data.frame(mhealth_sum = 0:16) %>%
+  mutate(pred = predict(vote_mh, data.frame(mhealth_sum = 0:16), interval = "prediction")) 
+
+ggplot(mapping = aes(new$mhealth_sum, new$pred)) + geom_line() +
+labs(title = "Log-odds of Voter Turnout ",
+        x = "Mental Health",
+        y = "Predicted Log-odds of Voter Turnout")
+```
+
+When the point increases by one, the log-odds of voter turnout decrease by 0.158.
+
+c.
+```{r}
+ggplot(mapping = aes(new$mhealth_sum, exp(new$pred))) +
+  geom_line() +
+  labs(title = "Odds of Voter Turnout",
+        x = "Mental Health",
+        y = "Predicted Odds of Voter Turnout")
+```
+
+When the point increases, the odds of voter turnout decreases by $exp(0.158*beta_1)$..
+
+d.
+```{r}
+ggplot(mh, aes(x = mhealth_sum, y = vote96)) + 
+  stat_smooth(method = "glm", method.args = list(family = "binomial")) + labs(title = "Logistic Linear relationship between Voter Turnout and Mental Health",
+        x = "Mental Health",
+        y = "Voter Turnout")
+```
+
+When the point increases in depression, the probablity of the voter turnout decreases.
+
+e.
+```{r}
+vote_mh_fit = mh %>%
+  add_predictions(vote_mh) %>%
+  mutate(pred = logit2prob(pred),
+         pred = as.numeric(pred > .5))
+
+mean(vote_mh_fit$vote96 == vote_mh_fit$pred, na.rm = TRUE)
+```
+
+68.2% of the predictions based on mental health are correct.Therfore, this model is quite good to predict the voter turnout result.
+
+### 3
+```{r}
+vote_model = glm(vote96 ~ mhealth_sum + age + educ, data = mh, family = binomial)
+summary(vote_model)
+```
+
+This new model contains the parameters of mental health, age and education of the voters. All the new predictors also appears strong relationship with voter turnout. Only the meatal health has negative relationship. Adding more predictors might increase the accuracy of the model if those predictors are significantly related to the response.
